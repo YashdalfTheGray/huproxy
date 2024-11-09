@@ -5,6 +5,7 @@ import (
 
 	"github.com/YashdalfTheGray/huproxy/config"
 	"github.com/YashdalfTheGray/huproxy/handlers"
+	"github.com/YashdalfTheGray/huproxy/utils"
 
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
@@ -18,7 +19,7 @@ func main() {
 
 	err := godotenv.Load()
 	if err != nil {
-		logrus.Warn("No .env file found")
+		log.Warn("No .env file found")
 	}
 
 	cfg, err := config.LoadConfig(log)
@@ -26,7 +27,9 @@ func main() {
 		log.Fatal("Failed to load configuration: ", err)
 	}
 
-	handler := handlers.NewHandler(cfg, log)
+	discordNotifier := utils.NewDiscordNotifier(cfg, log)
+
+	handler := handlers.NewHandler(cfg, log, discordNotifier)
 
 	http.HandleFunc("/ping", handler.PingHandler)
 	http.HandleFunc("/page", handler.PageHandler)
