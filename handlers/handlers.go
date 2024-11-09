@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -13,15 +14,17 @@ import (
 )
 
 type Handler struct {
-	Config *types.Config
-	Log    *logrus.Logger
+	Config   *types.Config
+	Log      *logrus.Logger
+	Notifier types.Notifier
 }
 
 // NewHandler creates a new Handler with the given Config and Logger.
-func NewHandler(config *types.Config, log *logrus.Logger) *Handler {
+func NewHandler(config *types.Config, log *logrus.Logger, notifier types.Notifier) *Handler {
 	return &Handler{
-		Config: config,
-		Log:    log,
+		Config:   config,
+		Log:      log,
+		Notifier: notifier,
 	}
 }
 
@@ -32,6 +35,7 @@ func (h *Handler) PingHandler(w http.ResponseWriter, r *http.Request) {
 	if h.Config.BridgeAddress == "" || h.Config.GroupedLightID == "" || h.Config.HueUsername == "" {
 		response = types.Error("")
 		h.Log.Warn("Missing one or more environment variables.")
+		h.Notifier.SendErrorNotification("[PingHandler] Missing one or more environment variables.")
 	} else {
 		response = types.Success()
 	}
@@ -46,6 +50,7 @@ func (h *Handler) PageHandler(w http.ResponseWriter, r *http.Request) {
 	if h.Config.BridgeAddress == "" || h.Config.GroupedLightID == "" || h.Config.HueUsername == "" {
 		response := types.Error("")
 		h.Log.Warn("Environment variables are not properly set.")
+		h.Notifier.SendErrorNotification("[PageHandler] Environment variables are not properly set.")
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 		return
@@ -67,7 +72,8 @@ func (h *Handler) PageHandler(w http.ResponseWriter, r *http.Request) {
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
 		response := types.Error("")
-		h.Log.Error("Failed to marshal JSON body.")
+		h.Log.Error("Failed to stringify Hue API JSON request body.")
+		h.Notifier.SendErrorNotification("[PageHandler] Failed to stringify Hue API JSON request body.")
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 		return
@@ -84,7 +90,8 @@ func (h *Handler) PageHandler(w http.ResponseWriter, r *http.Request) {
 	req, err := http.NewRequest("PUT", url, bytes.NewReader(jsonBody))
 	if err != nil {
 		response := types.Error("")
-		h.Log.Error("Error creating HTTP request.")
+		h.Log.Error("Error creating Hue API request.")
+		h.Notifier.SendErrorNotification("[PageHandler] Error creating Hue API request.")
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 		return
@@ -96,7 +103,8 @@ func (h *Handler) PageHandler(w http.ResponseWriter, r *http.Request) {
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		response := types.Error("")
-		h.Log.Error("Error sending HTTP request.")
+		h.Log.Error("Error sending Hue API the request.")
+		h.Notifier.SendErrorNotification("[PageHandler] Error sending Hue API the request.")
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 		return
@@ -106,7 +114,8 @@ func (h *Handler) PageHandler(w http.ResponseWriter, r *http.Request) {
 	_, err = io.ReadAll(resp.Body)
 	if err != nil {
 		response := types.Error("")
-		h.Log.Error("Error reading response body.")
+		h.Log.Error("Failed to parse Hue API JSON response.")
+		h.Notifier.SendErrorNotification("[PageHandler] Failed to parse Hue API JSON response.")
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 		return
@@ -120,6 +129,7 @@ func (h *Handler) PageHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		response = types.Error("")
 		h.Log.Warnf("Received non-200 status code from Hue Bridge: %d", resp.StatusCode)
+		h.Notifier.SendErrorNotification(fmt.Sprintf("[PageHandler] Received non-200 status code from Hue Bridge: %d", resp.StatusCode))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
