@@ -14,11 +14,16 @@ import (
 // and returns a Config object.
 func LoadConfig(log *logrus.Logger) (*types.Config, error) {
 	config := &types.Config{
-		BridgeAddress:  os.Getenv("HUE_BRIDGE_ADDRESS"),
-		GroupedLightID: os.Getenv("GROUPED_LIGHT_ID"),
-		HueUsername:    os.Getenv("HUE_USERNAME"),
-		StartColorHex:  os.Getenv("START_COLOR"),
-		JumpColorHex:   os.Getenv("JUMP_COLOR"),
+		BridgeAddress:          os.Getenv("HUE_BRIDGE_ADDRESS"),
+		ErrorDiscordWebhookUrl: os.Getenv("ERROR_DISCORD_WEBHOOK_URL"),
+		GroupedLightID:         os.Getenv("GROUPED_LIGHT_ID"),
+		HueUsername:            os.Getenv("HUE_USERNAME"),
+		StartColorHex:          os.Getenv("START_COLOR"),
+		JumpColorHex:           os.Getenv("JUMP_COLOR"),
+	}
+
+	if config.ErrorDiscordWebhookUrl == "" {
+		log.Warn("No Discord webhook URL set for error notifications")
 	}
 
 	if config.StartColorHex == "" {
